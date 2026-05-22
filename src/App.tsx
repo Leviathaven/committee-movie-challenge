@@ -35,8 +35,8 @@ export default function App() {
       async (snapshot) => {
         if (snapshot.exists()) {
           setChallengeDoc(snapshot.data() as { challengeTitle: string; creatorName: string });
-          setLoading(false);
         }
+        setLoading(false);
       },
       (error) => {
         handleFirestoreError(error, OperationType.GET, "challenges/default");
@@ -54,47 +54,8 @@ export default function App() {
         // Sort topics by id ascending
         loadedTopics.sort((a, b) => a.id - b.id);
 
-        if (loadedTopics.length === 0 && !snapshot.metadata.fromCache && !seedingInProgress.current) {
-          seedingInProgress.current = true;
-          try {
-            // Check for existing localStorage data to migrate
-            let topicsToSeed: MovieTopic[] = [];
-            let challengeTitleToSeed = "5-й Ежегодный Летний Киночеллендж Комитета";
-            let creatorNameToSeed = "Комитет";
-
-            const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (parsed.topics && Array.isArray(parsed.topics) && parsed.topics.length > 0) {
-                topicsToSeed = parsed.topics;
-                if (parsed.challengeTitle) challengeTitleToSeed = parsed.challengeTitle;
-                if (parsed.creatorName) creatorNameToSeed = parsed.creatorName;
-              }
-            }
-
-            // Default topics if local storage is empty
-            if (topicsToSeed.length === 0) {
-              const { generateDefaultTopics } = await import('./data/defaultTopics');
-              topicsToSeed = generateDefaultTopics(new Date(), 'immediate');
-            }
-
-            // Write base challenge details
-            await setDoc(doc(db, "challenges", "default"), {
-              challengeTitle: challengeTitleToSeed,
-              creatorName: creatorNameToSeed,
-            });
-
-            // Write all topics
-            for (const t of topicsToSeed) {
-              await setDoc(doc(db, "challenges/default/topics", `topic_${t.id}`), t);
-            }
-          } catch (e) {
-            handleFirestoreError(e, OperationType.WRITE, "challenges/default/topics");
-          }
-        } else {
-          setTopics(loadedTopics);
-          setLoading(false);
-        }
+        setTopics(loadedTopics);
+        setLoading(false);
       },
       (error) => {
         handleFirestoreError(error, OperationType.GET, "challenges/default/topics");
