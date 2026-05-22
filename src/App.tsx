@@ -27,6 +27,16 @@ export default function App() {
   const [activeRevealTopic, setActiveRevealTopic] = useState<MovieTopic | null>(null);
   const [activeEditTopic, setActiveEditTopic] = useState<MovieTopic | null>(null);
 
+  const [localRevealedIds, setLocalRevealedIds] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('local_revealed_topics');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [confirmReset, setConfirmReset] = useState(false);
+
   const seedingInProgress = useRef(false);
 
   // Check URL query parameters or hashes to unlock Admin/Organizer access
@@ -98,7 +108,10 @@ export default function App() {
   const config: ChallengeConfig = {
     challengeTitle: challengeDoc?.challengeTitle || "5-й Ежегодный Летний Киночеллендж Комитета",
     creatorName: challengeDoc?.creatorName || "Комитет",
-    topics: topics,
+    topics: topics.map((t) => ({
+      ...t,
+      isRevealedByUser: localRevealedIds.includes(t.id),
+    })),
   };
 
   // Update whole config state - syncing delta to Firestore
@@ -152,7 +165,14 @@ export default function App() {
   // Finished scratch / pop animation -> save unlocked state
   const handleRevealComplete = () => {
     if (activeRevealTopic) {
-      handleUpdateTopic(activeRevealTopic.id, { isRevealedByUser: true });
+      setLocalRevealedIds(prev => {
+        const next = [...prev];
+        if (!next.includes(activeRevealTopic.id)) {
+          next.push(activeRevealTopic.id);
+        }
+        localStorage.setItem('local_revealed_topics', JSON.stringify(next));
+        return next;
+      });
       setActiveRevealTopic(null);
     }
   };
@@ -285,8 +305,8 @@ export default function App() {
       </AnimatePresence>
 
       {/* Tiny descriptive subtle footer resembling design theme */}
-      <footer className="w-full max-w-7xl mx-auto mt-8 pt-4 border-t-2 border-black flex flex-col sm:flex-row justify-between items-center text-xs font-black uppercase text-black gap-2">
-        <div className="flex gap-6">
+      <footer className="w-full max-w-7xl mx-auto mt-8 pt-4 border-t-2 border-black flex flex-col md:flex-row justify-between items-center text-xs font-black uppercase text-black gap-4">
+        <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 bg-vibrant-lime border-2 border-black rounded-full"></span>
             <span>Раскрыто тем: {config.topics.filter(t => t.isRevealedByUser).length}</span>
@@ -295,6 +315,41 @@ export default function App() {
             <span className="w-4 h-4 bg-white border-2 border-black border-dashed rounded-full"></span>
             <span>Заблокировано тем: {config.topics.filter(t => !t.isRevealedByUser).length}</span>
           </div>
+          {localRevealedIds.length > 0 && (
+            <div className="relative">
+              {!confirmReset ? (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="px-2 py-1 bg-white border-2 border-black rounded-lg text-[9px] font-black uppercase tracking-wider text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                  id="reset-my-progress-btn"
+                >
+                  🔄 Сбросить мои открытия
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-vibrant-pink animate-pulse font-extrabold mr-1">Точно сбросить?</span>
+                  <button
+                    onClick={() => {
+                      setLocalRevealedIds([]);
+                      localStorage.setItem('local_revealed_topics', JSON.stringify([]));
+                      setConfirmReset(false);
+                    }}
+                    className="px-2 py-1 bg-red-400 hover:bg-red-500 border-2 border-black rounded-lg text-[9px] font-black uppercase tracking-wider text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer"
+                    id="reset-my-progress-confirm-btn"
+                  >
+                    Да
+                  </button>
+                  <button
+                    onClick={() => setConfirmReset(false)}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 border-2 border-black rounded-lg text-[9px] font-black uppercase tracking-wider text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer"
+                    id="reset-my-progress-cancel-btn"
+                  >
+                    Нет
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div>
           СПЕЦИАЛЬНО ДЛЯ ЧЛЕНОВ КОМИТЕТА v5.0
