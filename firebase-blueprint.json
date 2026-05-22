@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "challenge": {
+      "title": "Challenge",
+      "description": "Represents the layout title, creator and shared configuration metadata.",
+      "type": "object",
+      "properties": {
+        "challengeTitle": { "type": "string" },
+        "creatorName": { "type": "string" }
+      },
+      "required": ["challengeTitle", "creatorName"]
+    },
+    "topic": {
+      "title": "MovieTopic",
+      "description": "Represents a movie topic card.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "title": { "type": "string" },
+        "hint": { "type": "string" },
+        "image": { "type": "string" },
+        "imageName": { "type": "string" },
+        "revealAt": { "type": "string" },
+        "isRevealedByUser": { "type": "boolean" },
+        "revealAnimationType": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "watchedMovieTitle": { "type": "string" },
+        "watchedMovieRating": { "type": "integer" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "title", "revealAt", "isRevealedByUser", "revealAnimationType", "isCompleted"]
+    }
+  },
+  "firestore": {
+    "/challenges/{challengeId}": {
+      "schema": "challenge",
+      "description": "Stores the metadata configurations for challenges"
+    },
+    "/challenges/{challengeId}/topics/{topicId}": {
+      "schema": "topic",
+      "description": "Stores the individual movie topics/cards inside a challenge"
+    }
+  }
+}

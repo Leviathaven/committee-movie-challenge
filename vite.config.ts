@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './',
+    base: '/committee-movie-challenge/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Film, KanbanSquare, Settings, Play, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Film, KanbanSquare, Settings, Play, Award, Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { ChallengeConfig, MovieTopic } from './types';
 import AdminConfig from './components/AdminConfig';
@@ -12,64 +12,149 @@ import ChallengeBoard from './components/ChallengeBoard';
 import TopicDetailsModal from './components/TopicDetailsModal';
 import InteractiveRevealer from './components/InteractiveRevealer';
 
+import { doc, collection, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError } from './lib/firebase';
+
 const LOCAL_STORAGE_KEY = 'summer_movie_challenge_config';
 
 export default function App() {
-  const [config, setConfig] = useState<ChallengeConfig>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.topics && Array.isArray(parsed.topics)) {
-          // If it's the old 35 topics or English name, we reset to the new default
-          if (parsed.challengeTitle === "Ultimate Summer Cinema Challenge" || parsed.topics.length === 35) {
-            // Fall through to Russian default
-          } else {
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Could not load saved configuration. Restoring defaults.", e);
-    }
-
-    return {
-      challengeTitle: "5-й Ежегодный Летний Киночеллендж Комитета",
-      creatorName: "Комитет",
-      topics: [],
-    };
-  });
+  const [challengeDoc, setChallengeDoc] = useState<{ challengeTitle: string; creatorName: string } | null>(null);
+  const [topics, setTopics] = useState<MovieTopic[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [mode, setMode] = useState<'board' | 'creator'>('board');
   const [activeRevealTopic, setActiveRevealTopic] = useState<MovieTopic | null>(null);
   const [activeEditTopic, setActiveEditTopic] = useState<MovieTopic | null>(null);
 
-  // Sync state to local storage automatically
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
-    } catch (e) {
-      console.error("Failed to commit configurations to LocalStorage storage limits.", e);
-    }
-  }, [config]);
+  const seedingInProgress = useRef(false);
 
-  // Update whole config state
-  const handleUpdateConfig = (newConfig: ChallengeConfig) => {
-    setConfig(newConfig);
+  // Sync with Firestore in real-time
+  useEffect(() => {
+    const unsubChallenge = onSnapshot(
+      doc(db, "challenges", "default"),
+      async (snapshot) => {
+        if (snapshot.exists()) {
+          setChallengeDoc(snapshot.data() as { challengeTitle: string; creatorName: string });
+          setLoading(false);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, "challenges/default");
+      }
+    );
+
+    const unsubTopics = onSnapshot(
+      collection(db, "challenges", "default", "topics"),
+      async (snapshot) => {
+        const loadedTopics: MovieTopic[] = [];
+        snapshot.forEach((docSnap) => {
+          loadedTopics.push(docSnap.data() as MovieTopic);
+        });
+
+        // Sort topics by id ascending
+        loadedTopics.sort((a, b) => a.id - b.id);
+
+        if (loadedTopics.length === 0 && !snapshot.metadata.fromCache && !seedingInProgress.current) {
+          seedingInProgress.current = true;
+          try {
+            // Check for existing localStorage data to migrate
+            let topicsToSeed: MovieTopic[] = [];
+            let challengeTitleToSeed = "5-й Ежегодный Летний Киночеллендж Комитета";
+            let creatorNameToSeed = "Комитет";
+
+            const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed.topics && Array.isArray(parsed.topics) && parsed.topics.length > 0) {
+                topicsToSeed = parsed.topics;
+                if (parsed.challengeTitle) challengeTitleToSeed = parsed.challengeTitle;
+                if (parsed.creatorName) creatorNameToSeed = parsed.creatorName;
+              }
+            }
+
+            // Default topics if local storage is empty
+            if (topicsToSeed.length === 0) {
+              const { generateDefaultTopics } = await import('./data/defaultTopics');
+              topicsToSeed = generateDefaultTopics(new Date(), 'immediate');
+            }
+
+            // Write base challenge details
+            await setDoc(doc(db, "challenges", "default"), {
+              challengeTitle: challengeTitleToSeed,
+              creatorName: creatorNameToSeed,
+            });
+
+            // Write all topics
+            for (const t of topicsToSeed) {
+              await setDoc(doc(db, "challenges/default/topics", `topic_${t.id}`), t);
+            }
+          } catch (e) {
+            handleFirestoreError(e, OperationType.WRITE, "challenges/default/topics");
+          }
+        } else {
+          setTopics(loadedTopics);
+          setLoading(false);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, "challenges/default/topics");
+      }
+    );
+
+    return () => {
+      unsubChallenge();
+      unsubTopics();
+    };
+  }, []);
+
+  // Formulate reactive config object driven entirely by real-time Firestore data
+  const config: ChallengeConfig = {
+    challengeTitle: challengeDoc?.challengeTitle || "5-й Ежегодный Летний Киночеллендж Комитета",
+    creatorName: challengeDoc?.creatorName || "Комитет",
+    topics: topics,
   };
 
-  // Update single topic field values
-  const handleUpdateTopic = (topicId: number, updatedFields: Partial<MovieTopic>) => {
-    const updatedTopics = config.topics.map((t) => {
-      if (t.id === topicId) {
-        return { ...t, ...updatedFields };
+  // Update whole config state - syncing delta to Firestore
+  const handleUpdateConfig = async (newConfig: ChallengeConfig) => {
+    try {
+      // 1. Sync metadata
+      const docRef = doc(db, "challenges", "default");
+      await setDoc(docRef, {
+        challengeTitle: newConfig.challengeTitle,
+        creatorName: newConfig.creatorName,
+      }, { merge: true });
+
+      // 2. Perform delta updates of topics collection to save read/write quotas
+      const currentTopicsMap = new Map(topics.map(t => [t.id, t]));
+      const newTopicsMap = new Map(newConfig.topics.map(t => [t.id, t]));
+
+      // Delete removed ones
+      for (const oldTopic of topics) {
+        if (!newTopicsMap.has(oldTopic.id)) {
+          await deleteDoc(doc(db, "challenges/default/topics", `topic_${oldTopic.id}`));
+        }
       }
-      return t;
-    });
-    setConfig({
-      ...config,
-      topics: updatedTopics,
-    });
+
+      // Add or update new/modified ones
+      for (const newTopic of newConfig.topics) {
+        const oldTopic = currentTopicsMap.get(newTopic.id);
+        if (!oldTopic || JSON.stringify(oldTopic) !== JSON.stringify(newTopic)) {
+          await setDoc(doc(db, "challenges/default/topics", `topic_${newTopic.id}`), newTopic);
+        }
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, "challenges/default");
+    }
+  };
+
+  // Update single topic fields directly in Firestore
+  const handleUpdateTopic = async (topicId: number, updatedFields: Partial<MovieTopic>) => {
+    try {
+      const topicRef = doc(db, "challenges/default/topics", `topic_${topicId}`);
+      await setDoc(topicRef, updatedFields, { merge: true });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `challenges/default/topics/topic_${topicId}`);
+    }
   };
 
   // Launch animation trigger
@@ -99,6 +184,20 @@ export default function App() {
       handleUpdateTopic(activeEditTopic.id, updatedFields);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-vibrant-yellow text-black font-sans flex flex-col items-center justify-center p-4">
+        <div className="bg-white border-4 border-black rounded-3xl p-8 max-w-sm w-full text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center space-y-4">
+          <Loader2 className="w-12 h-12 text-vibrant-pink animate-spin" />
+          <h2 className="text-xl font-display font-black uppercase text-black leading-tight">СИНХРОНИЗАЦИЯ...</h2>
+          <p className="text-xs text-gray-700 font-bold leading-relaxed">
+            Подключаемся к базе данных реального времени, чтобы отобразить самые свежие обновления проекта!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-vibrant-yellow text-black font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
