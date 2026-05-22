@@ -13,6 +13,7 @@ interface ChallengeBoardProps {
   onUpdateTopic: (topicId: number, updated: Partial<MovieTopic>) => void;
   onTriggerReveal: (topic: MovieTopic) => void;
   onGoBackToWorkspace: () => void;
+  showAdminAccess?: boolean;
 }
 
 export default function ChallengeBoard({
@@ -20,6 +21,7 @@ export default function ChallengeBoard({
   onUpdateTopic,
   onTriggerReveal,
   onGoBackToWorkspace,
+  showAdminAccess = false,
 }: ChallengeBoardProps) {
   const [nowTime, setNowTime] = useState<number>(Date.now());
   const [shakingId, setShakingId] = useState<number | null>(null);
@@ -102,7 +104,7 @@ export default function ChallengeBoard({
       </div>
 
       {/* Progress metrics and workspace action row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${showAdminAccess ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
         
         {/* Metric A: Revealed ratio */}
         <div className="p-5 rounded-3xl bg-vibrant-blue border-4 border-black flex items-center gap-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
@@ -138,15 +140,17 @@ export default function ChallengeBoard({
         </div>
 
         {/* Action Button: Settings workspace */}
-        <div className="p-4 rounded-3xl bg-white border-4 border-black flex items-center justify-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-          <button
-            onClick={onGoBackToWorkspace}
-            className="w-full py-3.5 bg-vibrant-cyan hover:bg-cyan-200 text-xs font-display font-black tracking-wider uppercase text-black rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
-            id="board-workspace-back-btn"
-          >
-            ⚙️ Кабинет Организатора
-          </button>
-        </div>
+        {showAdminAccess && (
+          <div className="p-4 rounded-3xl bg-white border-4 border-black flex items-center justify-center shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+            <button
+              onClick={onGoBackToWorkspace}
+              className="w-full py-3.5 bg-vibrant-cyan hover:bg-cyan-200 text-xs font-display font-black tracking-wider uppercase text-black rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+              id="board-workspace-back-btn"
+            >
+              ⚙️ Кабинет Организатора
+            </button>
+          </div>
+        )}
 
       </div>
 

@@ -23,10 +23,36 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const [mode, setMode] = useState<'board' | 'creator'>('board');
+  const [showAdminAccess, setShowAdminAccess] = useState(false);
   const [activeRevealTopic, setActiveRevealTopic] = useState<MovieTopic | null>(null);
   const [activeEditTopic, setActiveEditTopic] = useState<MovieTopic | null>(null);
 
   const seedingInProgress = useRef(false);
+
+  // Check URL query parameters or hashes to unlock Admin/Organizer access
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasAdminParam = params.get('admin') === 'true' || params.get('organizer') === 'true' || params.has('secret');
+    const hasAdminHash = window.location.hash === '#admin' || window.location.hash === '#creator' || window.location.hash === '#secret';
+    const hasLocalStore = localStorage.getItem('movie_challenge_admin') === 'true';
+
+    if (hasAdminParam || hasAdminHash || hasLocalStore) {
+      setShowAdminAccess(true);
+      // Persist access so they can refresh pages cleanly
+      localStorage.setItem('movie_challenge_admin', 'true');
+      
+      // If they accessed directly with a parameter or hash, boot directly into creator mode
+      if (hasAdminParam || hasAdminHash) {
+        setMode('creator');
+      }
+    }
+  }, []);
+
+  const handleExitAdminAccess = () => {
+    localStorage.removeItem('movie_challenge_admin');
+    setShowAdminAccess(false);
+    setMode('board');
+  };
 
   // Sync with Firestore in real-time
   useEffect(() => {
@@ -178,43 +204,46 @@ export default function App() {
         </div>
 
         {/* Nav controller options selection */}
-        <div className="flex items-center bg-white border-2 border-black p-1 rounded-xl gap-1">
-          <button
-            onClick={() => setMode('board')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-display font-black uppercase transition-all duration-150 cursor-pointer ${
-              mode === 'board'
-                ? 'bg-vibrant-pink text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                : 'text-black hover:bg-gray-100'
-            }`}
-            id="nav-board-mode-btn"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Доска Челленджа</span>
-          </button>
-          <button
-            onClick={() => setMode('creator')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-display font-black uppercase transition-all duration-150 cursor-pointer ${
-              mode === 'creator'
-                ? 'bg-vibrant-pink text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                : 'text-black hover:bg-gray-100'
-            }`}
-            id="nav-creator-mode-btn"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Панель Организатора</span>
-          </button>
-        </div>
+        {showAdminAccess && (
+          <div className="flex items-center bg-white border-2 border-black p-1 rounded-xl gap-1">
+            <button
+              onClick={() => setMode('board')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-display font-black uppercase transition-all duration-150 cursor-pointer ${
+                mode === 'board'
+                  ? 'bg-vibrant-pink text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'text-black hover:bg-gray-100'
+              }`}
+              id="nav-board-mode-btn"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Доска Челленджа</span>
+            </button>
+            <button
+              onClick={() => setMode('creator')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-display font-black uppercase transition-all duration-150 cursor-pointer ${
+                mode === 'creator'
+                  ? 'bg-vibrant-pink text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'text-black hover:bg-gray-100'
+              }`}
+              id="nav-creator-mode-btn"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Панель Организатора</span>
+            </button>
+          </div>
+        )}
 
       </header>
 
       {/* Primary body screen switcher */}
       <main className="flex-1 w-full max-w-7xl mx-auto relative">
-        {mode === 'creator' ? (
+        {mode === 'creator' && showAdminAccess ? (
           <AdminConfig
             config={config}
             onUpdateConfig={handleUpdateConfig}
             onEditSlot={handleEditSlot}
             onViewBoard={() => setMode('board')}
+            onExitAdminAccess={handleExitAdminAccess}
           />
         ) : (
           <ChallengeBoard
@@ -222,6 +251,7 @@ export default function App() {
             onUpdateTopic={handleUpdateTopic}
             onTriggerReveal={handleTriggerReveal}
             onGoBackToWorkspace={() => setMode('creator')}
+            showAdminAccess={showAdminAccess}
           />
         )}
       </main>

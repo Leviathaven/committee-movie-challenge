@@ -14,6 +14,7 @@ interface AdminConfigProps {
   onUpdateConfig: (newConfig: ChallengeConfig) => void;
   onEditSlot: (id: number) => void;
   onViewBoard: () => void;
+  onExitAdminAccess?: () => void;
 }
 
 const ADMIN_PASSWORD = '381838194889418914AND@';
@@ -23,6 +24,7 @@ export default function AdminConfig({
   onUpdateConfig,
   onEditSlot,
   onViewBoard,
+  onExitAdminAccess,
 }: AdminConfigProps) {
   // Admin Authorization check
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(() => {
@@ -63,6 +65,9 @@ export default function AdminConfig({
   const handleExitAdminMode = () => {
     setIsAdminAuthorized(false);
     sessionStorage.removeItem("is_devilmustpray_auth");
+    if (onExitAdminAccess) {
+      onExitAdminAccess();
+    }
   };
 
   const showSuccess = (msg: string) => {
