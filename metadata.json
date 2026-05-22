@@ -1,0 +1,6 @@
+{
+  "name": "Summer Movie Challenge Board",
+  "description": "Create and schedule a 35-topic movie challenge with friends, featuring custom reveal timers, elegant image/text prompts, and animated reveals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
