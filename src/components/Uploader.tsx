@@ -127,7 +127,7 @@ export default function Uploader({
             <img
               src={currentImage}
               alt="Uploaded topic preview"
-              className="object-cover w-full h-full"
+              className="max-w-full max-h-full object-contain rounded-xl p-1"
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200">

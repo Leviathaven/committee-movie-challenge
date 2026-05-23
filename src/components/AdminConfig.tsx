@@ -99,7 +99,7 @@ export default function AdminConfig({
       id: nextId,
       title: `Новая летняя тема №${nextId} — Кликните для настройки`,
       hint: `Подсказка темы №${nextId}`,
-      revealAt: new Date().toISOString(),
+      revealAt: "",
       isRevealedByUser: false,
       revealAnimationType: 'ticket',
       isCompleted: false,
@@ -365,8 +365,7 @@ export default function AdminConfig({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2">
                 {config.topics.map((t) => {
                   const now = new Date();
-                  const unlock = new Date(t.revealAt);
-                  const isLocked = unlock > now;
+                  const isLocked = !t.revealAt || new Date(t.revealAt) > now;
 
                   return (
                     <div

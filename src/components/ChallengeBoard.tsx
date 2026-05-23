@@ -152,10 +152,10 @@ export default function ChallengeBoard({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {config.topics.map((t) => {
-              const unlockTimestamp = new Date(t.revealAt).getTime();
-              const isAvailableLocal = nowTime >= unlockTimestamp;
+              const unlockTimestamp = t.revealAt ? new Date(t.revealAt).getTime() : Infinity;
+              const isAvailableLocal = t.revealAt ? (nowTime >= unlockTimestamp) : false;
 
-              // RENDER STATUS A: Still locked by schedule timers
+              // RENDER STATUS A: Still locked by schedule timers (or no timer configured)
               if (!isAvailableLocal && !t.isRevealedByUser) {
                 const isShaking = shakingId === t.id;
 
@@ -180,11 +180,11 @@ export default function ChallengeBoard({
 
                     {/* Hint Image (Locked State) */}
                     {t.hintImage && (
-                      <div className="w-full h-20 rounded-xl overflow-hidden border-2 border-black/30 bg-white my-1.5 flex-shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,0.1)]">
+                      <div className="w-full h-28 rounded-xl overflow-hidden border-2 border-black/30 bg-white my-1.5 flex-shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,0.1)] flex items-center justify-center p-1">
                         <img 
                           src={t.hintImage} 
                           alt="Hint preview" 
-                          className="w-full h-full object-cover grayscale opacity-60" 
+                          className="max-w-full max-h-full object-contain grayscale opacity-60 rounded-lg" 
                           referrerPolicy="no-referrer"
                           onError={(e) => { (e.target as any).style.display = 'none'; }}
                         />
@@ -198,12 +198,25 @@ export default function ChallengeBoard({
                     </div>
 
                     <div className="w-full mt-auto pt-2 border-t border-dashed border-black/10 flex flex-col items-center flex-shrink-0">
-                      <span className="block text-[7px] font-mono text-gray-400 font-extrabold uppercase mb-0.5">
-                        ОТКРОЕТСЯ ЧЕРЕЗ:
-                      </span>
-                      <span className="inline-block text-[9px] font-mono font-bold text-vibrant-pink tracking-tight leading-none px-2 py-1 bg-white border-2 border-black rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] max-w-full truncate animate-pulse">
-                        {getCountdownString(t.revealAt)}
-                      </span>
+                      {t.revealAt ? (
+                        <>
+                          <span className="block text-[7px] font-mono text-gray-400 font-extrabold uppercase mb-0.5">
+                            ОТКРОЕТСЯ ЧЕРЕЗ:
+                          </span>
+                          <span className="inline-block text-[9px] font-mono font-bold text-vibrant-pink tracking-tight leading-none px-2 py-1 bg-white border-2 border-black rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] max-w-full truncate animate-pulse">
+                            {getCountdownString(t.revealAt)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block text-[7px] font-mono text-gray-400 font-extrabold uppercase mb-0.5">
+                            СТАТУС:
+                          </span>
+                          <span className="inline-block text-[8px] font-mono font-black text-gray-500 tracking-tight leading-none px-2 py-1 bg-white border border-black rounded-lg shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] max-w-full truncate">
+                            ЖДЕТ ТАЙМЕРА 🔒
+                          </span>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -227,11 +240,11 @@ export default function ChallengeBoard({
 
                     {/* Hint Image (Standby Reveal State) */}
                     {t.hintImage && (
-                      <div className="w-full h-20 rounded-xl overflow-hidden border-2 border-black bg-white my-1.5 flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                      <div className="w-full h-28 rounded-xl overflow-hidden border-2 border-black bg-white my-1.5 flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center p-1">
                         <img 
                           src={t.hintImage} 
                           alt="Hint preview" 
-                          className="w-full h-full object-cover" 
+                          className="max-w-full max-h-full object-contain rounded-lg" 
                           referrerPolicy="no-referrer"
                           onError={(e) => { (e.target as any).style.display = 'none'; }}
                         />
@@ -267,11 +280,11 @@ export default function ChallengeBoard({
 
                   {/* Topic Core Image (Revealed State) */}
                   {t.image && (
-                    <div className="w-full h-20 rounded-xl overflow-hidden border-2 border-black bg-gray-50 my-1.5 flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    <div className="w-full h-28 rounded-xl overflow-hidden border-2 border-black bg-gray-50 my-1.5 flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center p-1">
                       <img 
                         src={t.image} 
                         alt={t.title} 
-                        className="w-full h-full object-cover" 
+                        className="max-w-full max-h-full object-contain rounded-lg" 
                         referrerPolicy="no-referrer"
                         onError={(e) => { (e.target as any).style.display = 'none'; }}
                       />

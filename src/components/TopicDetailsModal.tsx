@@ -52,16 +52,29 @@ export default function TopicDetailsModal({
 
   const [animType, setAnimType] = useState<RevealAnimationType>(topic.revealAnimationType);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hasTimer, setHasTimer] = useState(() => {
+    return !!topic.revealAt;
+  });
+
   const [revealTimeStr, setRevealTimeStr] = useState(() => {
     // Formats ISO string into input datetime-local compatible string in local time zone
-    const d = new Date(topic.revealAt);
+    const rawDate = topic.revealAt ? new Date(topic.revealAt) : new Date();
+    const d = isNaN(rawDate.getTime()) ? new Date() : rawDate;
     const tzOffset = d.getTimezoneOffset() * 60000; // offset in milliseconds
     const localISOTime = (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 16);
     return localISOTime;
   });
 
   const handleSave = () => {
-    const utcDate = new Date(revealTimeStr);
+    let savedRevealAt = "";
+    if (hasTimer) {
+      const utcDate = new Date(revealTimeStr);
+      if (!isNaN(utcDate.getTime())) {
+        savedRevealAt = utcDate.toISOString();
+      } else {
+        savedRevealAt = new Date().toISOString();
+      }
+    }
     onSave({
       title: title.trim(),
       hint: hint.trim(),
@@ -71,7 +84,7 @@ export default function TopicDetailsModal({
       image: revealImage.trim(),
       imageName: revealImageName.trim(),
       revealAnimationType: animType,
-      revealAt: utcDate.toISOString(),
+      revealAt: savedRevealAt,
     });
     onClose();
   };
@@ -195,8 +208,8 @@ export default function TopicDetailsModal({
                   className="w-full p-2 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
                 />
                 {hintImage && (
-                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center">
-                    <img src={hintImage} alt="Hint Preview" className="object-cover w-full h-full" onError={(e)=>{ (e.target as any).src='' }} />
+                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center p-1">
+                    <img src={hintImage} alt="Hint Preview" className="max-w-full max-h-full object-contain rounded-lg" onError={(e)=>{ (e.target as any).src='' }} />
                   </div>
                 )}
               </div>
@@ -255,31 +268,57 @@ export default function TopicDetailsModal({
                   className="w-full p-2 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
                 />
                 {revealImage && (
-                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center">
-                    <img src={revealImage} alt="Reveal Preview" className="object-cover w-full h-full" onError={(e)=>{ (e.target as any).src='' }} />
+                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center p-1">
+                    <img src={revealImage} alt="Reveal Preview" className="max-w-full max-h-full object-contain rounded-lg" onError={(e)=>{ (e.target as any).src='' }} />
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-display font-black text-black mb-1.5 uppercase tracking-wide">
-              Дата и время автоматического открытия
-            </label>
-            <div className="relative">
-              <input
-                type="datetime-local"
-                value={revealTimeStr}
-                onChange={(e) => setRevealTimeStr(e.target.value)}
-                className="w-full p-2.5 pl-9 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
-                id={`modal-topic-date-${topic.id}`}
-              />
-              <Calendar className="w-4 h-4 text-black absolute left-3 top-3.5" />
+          {/* Schedulling Timer Selector Toggle */}
+          <div className="p-4 bg-gray-50 border-2 border-black rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="block text-xs font-display font-black text-black uppercase tracking-wide flex items-center gap-1.5">
+                ⏰ Таймер автоматического открытия
+              </span>
+              <button
+                type="button"
+                onClick={() => setHasTimer(!hasTimer)}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg border-2 border-black transition-all ${
+                  hasTimer 
+                    ? 'bg-vibrant-lime text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]' 
+                    : 'bg-white text-gray-400 border-gray-300'
+                }`}
+                id={`modal-timer-toggle-${topic.id}`}
+              >
+                {hasTimer ? 'Включен' : 'Выключен'}
+              </button>
             </div>
-            <p className="text-[10px] text-gray-500 mt-1.5 font-mono uppercase leading-tight">
-              Карточка будет заблокирована до наступления указанного времени.
-            </p>
+
+            {hasTimer ? (
+              <div className="space-y-1.5">
+                <div className="relative">
+                  <input
+                    type="datetime-local"
+                    value={revealTimeStr}
+                    onChange={(e) => setRevealTimeStr(e.target.value)}
+                    className="w-full p-2.5 pl-9 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
+                    id={`modal-topic-date-${topic.id}`}
+                  />
+                  <Calendar className="w-4 h-4 text-black absolute left-3 top-3.5" />
+                </div>
+                <p className="text-[10px] text-gray-500 font-mono uppercase leading-tight">
+                  Карточка автоматически откроется для игроков в указанное время.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-white border-2 border-black border-dashed rounded-xl text-center">
+                <p className="text-[10px] text-gray-600 font-bold uppercase leading-tight">
+                  ❌ Таймер выключен. Карточка останется навечно заблокированной на доске, пока вы не укажете время.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
