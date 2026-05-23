@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, Settings, Trash2 } from 'lucide-react';
 import { MovieTopic, RevealAnimationType } from '../types';
+import Uploader from './Uploader';
 
 interface TopicDetailsModalProps {
   topic: MovieTopic;
@@ -29,6 +30,26 @@ export default function TopicDetailsModal({
 }: TopicDetailsModalProps) {
   const [title, setTitle] = useState(topic.title);
   const [hint, setHint] = useState(topic.hint || '');
+  const [author, setAuthor] = useState(topic.author || '');
+  const [hintImage, setHintImage] = useState(topic.hintImage || '');
+  const [hintImageName, setHintImageName] = useState(topic.hintImageName || '');
+  const [revealImage, setRevealImage] = useState(topic.image || '');
+  const [revealImageName, setRevealImageName] = useState(topic.imageName || '');
+
+  const [hintImgMode, setHintImgMode] = useState<'file' | 'url'>(() => {
+    if (topic.hintImage && (topic.hintImage.startsWith('http://') || topic.hintImage.startsWith('https://'))) {
+      return 'url';
+    }
+    return 'file';
+  });
+
+  const [revealImgMode, setRevealImgMode] = useState<'file' | 'url'>(() => {
+    if (topic.image && (topic.image.startsWith('http://') || topic.image.startsWith('https://'))) {
+      return 'url';
+    }
+    return 'file';
+  });
+
   const [animType, setAnimType] = useState<RevealAnimationType>(topic.revealAnimationType);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [revealTimeStr, setRevealTimeStr] = useState(() => {
@@ -44,6 +65,11 @@ export default function TopicDetailsModal({
     onSave({
       title: title.trim(),
       hint: hint.trim(),
+      author: author.trim(),
+      hintImage: hintImage.trim(),
+      hintImageName: hintImageName.trim(),
+      image: revealImage.trim(),
+      imageName: revealImageName.trim(),
       revealAnimationType: animType,
       revealAt: utcDate.toISOString(),
     });
@@ -100,6 +126,141 @@ export default function TopicDetailsModal({
               className="w-full p-2.5 bg-white border-2 border-black rounded-xl text-sm font-bold text-black focus:outline-none focus:bg-vibrant-blue placeholder-gray-400"
               id={`modal-topic-hint-${topic.id}`}
             />
+          </div>
+
+          {/* Author of the topic */}
+          <div>
+            <label className="block text-xs font-display font-black text-black mb-1.5 uppercase tracking-wide">
+              👤 Автор темы (кто предложил)
+            </label>
+            <input
+              type="text"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="Укажите автора темы..."
+              className="w-full p-2.5 bg-white border-2 border-black rounded-xl text-sm font-bold text-black focus:outline-none focus:bg-vibrant-blue placeholder-gray-400"
+              id={`modal-topic-author-${topic.id}`}
+            />
+          </div>
+
+          {/* Image source selector for Hint */}
+          <div className="space-y-3 p-4 bg-gray-50 border-2 border-black rounded-2xl">
+            <span className="block text-xs font-display font-black text-black uppercase tracking-wide">
+              🖼️ Картинка-подсказка (до вскрытия)
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setHintImgMode('file')}
+                className={`flex-1 py-1.5 border-2 border-black text-[10px] font-black uppercase rounded-lg transition-all ${
+                  hintImgMode === 'file' ? 'bg-vibrant-cyan text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]' : 'bg-white text-black'
+                }`}
+              >
+                Загрузить файлом
+              </button>
+              <button
+                type="button"
+                onClick={() => setHintImgMode('url')}
+                className={`flex-1 py-1.5 border-2 border-black text-[10px] font-black uppercase rounded-lg transition-all ${
+                  hintImgMode === 'url' ? 'bg-vibrant-cyan text-black shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]' : 'bg-white text-black'
+                }`}
+              >
+                Вставить ссылку
+              </button>
+            </div>
+
+            {hintImgMode === 'file' ? (
+              <Uploader
+                id="hint-img-uploader"
+                onImageSelected={(base64, name) => {
+                  setHintImage(base64);
+                  setHintImageName(name);
+                }}
+                currentImage={hintImage}
+                onClearImage={() => {
+                  setHintImage('');
+                  setHintImageName('');
+                }}
+              />
+            ) : (
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  value={hintImage}
+                  onChange={(e) => {
+                    setHintImage(e.target.value);
+                    setHintImageName('External URL');
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full p-2 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
+                />
+                {hintImage && (
+                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center">
+                    <img src={hintImage} alt="Hint Preview" className="object-cover w-full h-full" onError={(e)=>{ (e.target as any).src='' }} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Image source selector for Reveal Image */}
+          <div className="space-y-3 p-4 bg-gray-50 border-2 border-black rounded-2xl">
+            <span className="block text-xs font-display font-black text-black uppercase tracking-wide">
+              🎬 Изображение темы (после вскрытия)
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRevealImgMode('file')}
+                className={`flex-1 py-1.5 border-2 border-black text-[10px] font-black uppercase rounded-lg transition-all ${
+                  revealImgMode === 'file' ? 'bg-vibrant-pink text-white shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]' : 'bg-white text-black'
+                }`}
+              >
+                Загрузить файлом
+              </button>
+              <button
+                type="button"
+                onClick={() => setRevealImgMode('url')}
+                className={`flex-1 py-1.5 border-2 border-black text-[10px] font-black uppercase rounded-lg transition-all ${
+                  revealImgMode === 'url' ? 'bg-vibrant-pink text-white shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]' : 'bg-white text-black'
+                }`}
+              >
+                Вставить ссылку
+              </button>
+            </div>
+
+            {revealImgMode === 'file' ? (
+              <Uploader
+                id="reveal-img-uploader"
+                onImageSelected={(base64, name) => {
+                  setRevealImage(base64);
+                  setRevealImageName(name);
+                }}
+                currentImage={revealImage}
+                onClearImage={() => {
+                  setRevealImage('');
+                  setRevealImageName('');
+                }}
+              />
+            ) : (
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  value={revealImage}
+                  onChange={(e) => {
+                    setRevealImage(e.target.value);
+                    setRevealImageName('External URL');
+                  }}
+                  placeholder="https://example.com/topic-image.jpg"
+                  className="w-full p-2 bg-white border-2 border-black rounded-xl text-xs font-mono font-bold text-black focus:outline-none focus:bg-vibrant-blue"
+                />
+                {revealImage && (
+                  <div className="border-2 border-black rounded-xl overflow-hidden aspect-[4/3] bg-white max-h-36 flex items-center justify-center">
+                    <img src={revealImage} alt="Reveal Preview" className="object-cover w-full h-full" onError={(e)=>{ (e.target as any).src='' }} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
