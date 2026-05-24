@@ -29,6 +29,15 @@
         "notes": { "type": "string" }
       },
       "required": ["id", "title", "revealAt", "isRevealedByUser", "revealAnimationType", "isCompleted"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Represents backend application configurations such as admin access password.",
+      "type": "object",
+      "properties": {
+        "adminPassword": { "type": "string" }
+      },
+      "required": ["adminPassword"]
     }
   },
   "firestore": {
@@ -39,6 +48,10 @@
     "/challenges/{challengeId}/topics/{topicId}": {
       "schema": "topic",
       "description": "Stores the individual movie topics/cards inside a challenge"
+    },
+    "/settings/{settingsId}": {
+      "schema": "settings",
+      "description": "Stores system configurations such as admin authentication credentials"
     }
   }
 }

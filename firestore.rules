@@ -15,5 +15,10 @@ service cloud.firestore {
     match /challenges/{challengeId}/topics/{topicId} {
       allow read, write: if true;
     }
+
+    // Application Global Settings and Passwords
+    match /settings/{settingsId} {
+      allow read, write: if true;
+    }
   }
 }

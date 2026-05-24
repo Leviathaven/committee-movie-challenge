@@ -8,6 +8,8 @@ import {
   Award, Film, Trash2, Sliders, Calendar, CheckCircle, AlertTriangle, Play, Lock, ShieldCheck
 } from 'lucide-react';
 import { ChallengeConfig, MovieTopic, RevealAnimationType } from '../types';
+import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AdminConfigProps {
   config: ChallengeConfig;
@@ -32,6 +34,10 @@ export default function AdminConfig({
   });
   const [typedPassword, setTypedPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const [challengeTitle, setChallengeTitle] = useState(config.challengeTitle);
   const [creatorName, setCreatorName] = useState(config.creatorName);
@@ -50,14 +56,56 @@ export default function AdminConfig({
   const [isWipingBoard, setIsWipingBoard] = useState(false);
 
   // Authenticate Admin
-  const handleAuthenticate = (e: React.FormEvent) => {
+  const handleAuthenticate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (typedPassword === ADMIN_PASSWORD) {
-      setIsAdminAuthorized(true);
-      sessionStorage.setItem("is_devilmustpray_auth", "true");
-      setAuthError("");
-    } else {
-      setAuthError("Доступ заблокирован. Неверный пароль организатора.");
+    setAuthenticating(true);
+    setAuthError("");
+    try {
+      const docRef = doc(db, "settings", "admin");
+      const snap = await getDoc(docRef);
+      let targetPassword = ADMIN_PASSWORD;
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.adminPassword) {
+          targetPassword = data.adminPassword;
+        }
+      }
+      if (typedPassword === targetPassword) {
+        setIsAdminAuthorized(true);
+        sessionStorage.setItem("is_devilmustpray_auth", "true");
+        setAuthError("");
+      } else {
+        setAuthError("Доступ заблокирован. Неверный пароль организатора.");
+      }
+    } catch (err) {
+      if (typedPassword === ADMIN_PASSWORD) {
+        setIsAdminAuthorized(true);
+        sessionStorage.setItem("is_devilmustpray_auth", "true");
+        setAuthError("");
+      } else {
+        setAuthError("Ошибка базы данных или неверный пароль.");
+      }
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword.trim()) {
+      showError("Пароль не может быть пустым!");
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const docRef = doc(db, "settings", "admin");
+      await setDoc(docRef, { adminPassword: newPassword.trim() }, { merge: true });
+      showSuccess("Пароль успешно обновлен в базе данных!");
+      setNewPassword("");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, "settings/admin");
+      showError("Не удалось обновить пароль в базе данных.");
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -202,7 +250,8 @@ export default function AdminConfig({
                 onChange={(e) => setTypedPassword(e.target.value)}
                 placeholder="Вставьте защитный код..."
                 required
-                className="w-full p-3 bg-white border-2 border-black rounded-xl text-xs font-bold text-black focus:outline-none focus:bg-vibrant-blue"
+                disabled={authenticating}
+                className="w-full p-3 bg-white border-2 border-black rounded-xl text-xs font-bold text-black focus:outline-none focus:bg-vibrant-blue disabled:opacity-50"
               />
             </div>
 
@@ -214,9 +263,10 @@ export default function AdminConfig({
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-vibrant-lime hover:bg-lime-400 text-black border-2 border-black rounded-xl text-xs font-display font-black uppercase tracking-wide shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+              disabled={authenticating}
+              className="w-full py-3.5 bg-vibrant-lime hover:bg-lime-400 text-black border-2 border-black rounded-xl text-xs font-display font-black uppercase tracking-wide shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer disabled:opacity-50"
             >
-              Подтвердить доступ
+              {authenticating ? "Проверка..." : "Подтвердить доступ"}
             </button>
           </form>
         </div>
@@ -308,6 +358,39 @@ export default function AdminConfig({
             >
               Сохранить информацию
             </button>
+
+            <div className="border-t-2 border-dashed border-black pt-4 mt-4 space-y-4">
+              <h4 className="text-xs font-display font-black text-black uppercase tracking-wider flex items-center gap-1.5">
+                🔒 Безопасность: Смена пароля
+              </h4>
+              
+              <div>
+                <label className="block text-[10px] font-display font-black text-gray-700 mb-1.5 uppercase tracking-wide">
+                  Новый пароль организатора
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Введите новый пароль..."
+                    className="flex-1 p-2 bg-white border-2 border-black rounded-xl text-xs font-bold text-black focus:outline-none focus:bg-vibrant-blue placeholder-gray-400"
+                    id="workspace-new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleChangePassword}
+                    disabled={isChangingPassword}
+                    className="px-4 py-2 bg-black hover:bg-vibrant-pink text-white hover:text-black border-2 border-black rounded-xl text-[10px] font-display font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    {isChangingPassword ? "Секунду..." : "Сменить"}
+                  </button>
+                </div>
+                <p className="text-[9px] text-gray-500 font-mono uppercase mt-1.5 leading-tight">
+                  Новый пароль сохранится в Firestore базу данных и будет требоваться при следующем входе.
+                </p>
+              </div>
+            </div>
 
             <button
               onClick={handleClearAll}
